@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Rechnung</title>
+    <style>
+        body {
+            font-family: "Palatino Linotype", serif;
+            font-size: 11pt;
+        }
+        .kopf {
+            text-align: right;
+            margin-bottom: 30px;
+            border-right: 1px solid black;
+            padding-right: 5px;
+        }
+        .kunde {
+            text-align: left;
+            margin-bottom: 30px;
+        }
+        .datum {
+            text-align: right;
+            margin: 20px;
+        }
+        table {
+            border-collapse: collapse;
+            margin-top: 0.5cm;
+            margin-bottom: 0.5cm;
+            table-layout: fixed;
+            width: 100%;
+        }
+        th {
+            border-top: 1px solid black;
+            border-bottom: 1px solid black;
+            padding: 5px;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+        td {
+            text-align: center;
+        }
+        .summe {
+            font-weight: bold;
+            text-decoration: underline;
+        }
+        .border-steuer {
+            width: 200px;
+            height: 1px;
+            background-color: black;
+            margin-bottom: 10px;
+        }
+        .steuer {
+            text-align: left;
+            font-size: 8pt;
+            font-style: italic;
+        }
+        .lochmarke {
+            position: fixed;
+            left: -15mm;
+            top: 148.5mm;
+            width: 5mm;
+            height: 0.5mm;
+            background-color: black;
+        }
+        .falzmarke-oben {
+            position: fixed;
+            left: -15mm;
+            top: 105mm;
+            width: 3mm;
+            height: 0.5mm;
+            background-color: black;
+        }
+    </style>
+</head>
+<body>
+    <!-- Falz- und Lochmarken -->
+    <div class="lochmarke"></div>
+    <div class="falzmarke-oben"></div>
+    
+    <!-- Rechnungskopf -->
+    <div class="kopf">
+        <b>
+            <p style="font-size: 14pt; margin-bottom: 4px;">Dipl.-Psych. Katharina Kunisch M.A.</p>
+            <p style="margin-top: 0px; margin-bottom: 30px;">Psychologische Psychotherapeutin</p>
+        </b>
+        <p>0176/62136940<br>
+            katharina.kunisch@pt-bamberg.de<br>
+            Hauptstr. 7<br>
+            96155 Buttenheim
+        </p>
+    </div>
+    <div class="kunde">
+        <p style="font-size: 6.5pt;">Absender: Katharina Kunisch • Hauptstr.  7 • 96155 Buttenheim</p>
+        <hr style="width: 250px; height: 0px; margin: 0; margin-bottom: 15px;">
+        <b>{{ rechnung.kunde.name }}</b><br><br>
+        {{ rechnung.kunde.strasse }} {{ rechnung.kunde.hausnummer }}<br>
+        {{ rechnung.kunde.plz }} {{ rechnung.kunde.ort }}<br><br><br>
+    </div>
+    <div class="datum">
+        Buttenheim, den {{ rechnung.datum }}<br><br><br><br>
+    </div>
+    <p><b>Zahlungserinnerung zu ihrer Rechnung Nr.: {{ rechnung.rechnung_nr }}</b></p><br>
+    <p>Sehr geehrte Damen und Herren,</p><br>
+    <p>ich konnte bislang keinen Zahlungseingang für meine Rechnung vom 10.10.25 mit der Fälligkeit zum 24.10.25 feststellen. Daher möchte ich Sie freundlich daran erinnern, den offenen Betrag zeitnah zu überweisen.</p>
+    <p>Sollte die Zahlung bereits erfolgt sein, betrachten Sie dieses Schreiben bitte als gegenstandslos. Falls es Rückfragen gibt, zögern Sie nicht, mich zu kontaktieren.</p>
+    <p>Ich bitte Sie, den ausstehenden Betrag bis spätestens {{ rechnung.frist }} auf unten angegebenes Konto zu überweisen.</p>
+    
+    <!-- Leistungstabelle -->
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 10%;">Datum</th>
+                <th style="width: 20%;">Art der Maßnahme</th>
+                <th style="width: 10%;">Dauer je Sitzung (min)</th>
+                <th style="width: 10%;">Sitzungs- satz</th>
+                <th style="width: 10%;">Anzahl</th>
+                <th style="width: 10%;">
+                    Fahrtkosten
+                    {% if rechnung.fahrtkosten and rechnung.fahrtkosten[0].kosten > 0 %}
+                        <br>({{ "%.0f"|format(rechnung.fahrtkosten[0].fahrtstrecke) }}km x 0,35€)
+                    {% else %}
+                        <br>
+                    {% endif %}
+                </th>
+                <th style="width: 20%;">Gesamt</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in rechnung.besuche %}
+            <tr>
+                <td>{{ b.datum }}</td>
+                <td>{{ b.bemerkung }}</td>
+                <td>{{ b.einheitsdauer }}</td>
+                <td>{{ "%.2f"|format(b.preis_pro_einheit) }} €</td>
+                <td>{{ b.einheiten }}</td>
+                <td></td>
+                <td></td>
+            </tr>
+            {% endfor %}
+
+            {% for f in rechnung.fahrtkosten %}
+            {% if f.kosten > 0 %}
+            <tr>
+                <td>{{ f.datum }}</td>
+                <td>Fahrtkosten</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>{{ "%.2f"|format(f.kosten) }} €</td>
+                <td></td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        
+            <tr class="summe">
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>{{ "%.2f"|format(rechnung.summe) }} €</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Steuerhinweis -->
+    <div class="border-steuer"></div>
+    <p class="steuer">
+        Leistung gem. § 4 Nr. 21 b Doppelbuchstabe bb) UStG und Art. 132 Abs. 1 Buchstabe j) MwStSystRL umsatzsteuerfrei.
+    </p><br><br>
+    
+    <!-- Grußformel -->
+    <p>Mit freundlichen Grüßen</p><br><br>
+    <p>Dipl.-Psych. Katharina Kunisch M.A.</p>
+</body>
+</html>

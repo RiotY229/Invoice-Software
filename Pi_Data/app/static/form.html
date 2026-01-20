@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Besuch eintragen</title>
+</head>
+<body>
+    <h1>Neuen Besuch eintragen</h1>
+    <form id="besuchForm">
+        <label for="kdnr">Kunde:</label>
+        <select id="kdnr" name="kdnr" required>
+            <option value="">-- bitte wählen --</option>
+        </select>
+        <button type="button" id="addKundeBtn">⚙️</button><br><br>
+        <label for="termin">Datum:</label>
+        <input type="datetime-local" id="termin" name="termin" required><br><br>
+
+        <label for="anzahl_einheiten">Einheiten:</label>
+        <input type="number" id="anzahl_einheiten" name="anzahl_einheiten" required><br><br>
+
+        <label for="bemerkung">Bemerkung:</label>
+        <input type="text" id="bemerkung" name="bemerkung">
+        <p>z.B. Supervision, Einzelsupervision Claudia Stahl, Supervision PIA, etc...</p> <br>
+
+        <button type="submit">Speichern</button>
+    </form>
+
+    <p id="response"></p>
+
+    <!-- Modal für neuen Kunden -->
+    <div id="kundeModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+        background:rgba(0,0,0,0.5); justify-content:center; align-items:center;">
+        <div style="background:white; padding:20px; border-radius:8px; width:300px;">
+            <h2>Neuer Kunde</h2>
+            <form id="kundeForm">
+                <label for="name">Name:</label><br>
+                <input type="text" id="name" name="name" required><br><br>
+ 
+                <label for="strasse">Straße & Hausnummer:</label><br>
+                <input type="text" id="strasse" name="strasse" placeholder="Musterweg 7" required><br><br>
+ 
+                <label for="plz">PLZ & Ort:</label><br>
+                <input type="text" id="plz" name="plz" placeholder="12345 Musterstadt" required><br><br>
+
+                <button type="submit">Speichern</button>
+                <button type="button" id="cancelKundeBtn">Abbrechen</button>
+            </form>
+            <p id="kundeResponse"></p>
+        </div>
+    </div>
+
+
+    <script>
+        // --- Kundenliste laden und Dropdown befüllen ---
+        async function ladeKunden() {
+            const response = await fetch("/kunden");
+            const kunden = await response.json();
+
+            const select = document.getElementById("kdnr");
+            kunden.forEach(k => {
+                const opt = document.createElement("option");
+                opt.value = k.kdnr;
+                opt.textContent = `${k.name} (${k.kdnr})`;
+                select.appendChild(opt);
+            });
+        }
+
+        ladeKunden();
+
+        // --- Heutiges Datum vorausfüllen ---
+        function setzeHeutigesDatum() {
+            const jetzt = new Date();
+            // auf volle Stunden runden (oder: jetzt.setMinutes(0,0,0); falls du nur Stunde möchtest)
+            jetzt.setSeconds(0,0);  
+
+            // Hole lokale Zeitkomponenten
+            const jahr = jetzt.getFullYear();
+            const monat = String(jetzt.getMonth() + 1).padStart(2, '0');
+            const tag = String(jetzt.getDate()).padStart(2, '0');
+            const stunden = String(jetzt.getHours()).padStart(2, '0');
+            const minuten = String(jetzt.getMinutes()).padStart(2, '0');
+
+            // Format für datetime-local: YYYY-MM-DDTHH:MM (ohne Zeitzone!)
+            const localISO = `${jahr}-${monat}-${tag}T${stunden}:${minuten}`;
+
+            document.getElementById("termin").value = localISO;
+        }
+
+        setzeHeutigesDatum();
+
+        // --- Formular absenden ---
+        document.getElementById("besuchForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+
+            const data = {
+                kdnr: parseInt(document.getElementById("kdnr").value),
+                termin: document.getElementById("termin").value,
+                anzahl_einheiten: parseInt(document.getElementById("anzahl_einheiten").value),
+                bemerkung: document.getElementById("bemerkung").value
+            };
+
+            // --- Daten zur Überprüfung anzeigen ---
+            const checkText = 
+                "Bitte prüfen Sie die Eingaben:\n\n" +
+                "Kunde: " + document.getElementById("kdnr").selectedOptions[0].text + "\n" +
+                "Termin: " + data.termin + "\n" +
+                "Einheiten: " + data.anzahl_einheiten + "\n" +
+                "Bemerkung: " + data.bemerkung + "\n\n" +
+                "Sollen diese Daten wirklich gespeichert werden?";
+
+            if (!confirm(checkText)) {
+                return; // Abbruch, wenn "Abbrechen" geklickt wird
+            }
+
+            const response = await fetch("/besuch", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            document.getElementById("response").innerText = "✅ Besuch gespeichert: " + JSON.stringify(result);
+        });
+       // --- Modal öffnen/schließen ---
+        document.getElementById("addKundeBtn").addEventListener("click", () => {
+            document.getElementById("kundeModal").style.display = "flex";
+        });
+
+        document.getElementById("cancelKundeBtn").addEventListener("click", () => {
+            document.getElementById("kundeModal").style.display = "none";
+        });
+
+        // --- Modal öffnen/schließen ---
+        document.getElementById("addKundeBtn").addEventListener("click", () => {
+            document.getElementById("kundeModal").style.display = "flex";
+        });
+
+        document.getElementById("cancelKundeBtn").addEventListener("click", () => {
+            document.getElementById("kundeModal").style.display = "none";
+        });
+
+        // --- Kunde speichern ---
+        document.getElementById("kundeForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+
+        // Straße & Hausnummer trennen
+        const strasseInput = document.getElementById("strasse").value.trim().split(" ");
+        const hausnummer = strasseInput.pop();
+        const strasse = strasseInput.join(" ");
+
+        // PLZ & Ort trennen
+        const plzInput = document.getElementById("plz").value.trim().split(" ");
+        const plz = plzInput[0];
+        const ort = plzInput.slice(1).join(" ");
+
+        const data = {
+            name: document.getElementById("name").value.trim(),
+            strasse: strasse,
+            hausnummer: hausnummer,
+            plz: plz,
+            ort: ort
+        };
+
+        if (!confirm(
+            "Neuen Kunden anlegen?\n\n" +
+            "Name: " + data.name + "\n" +
+            "Adresse: " + data.strasse + " " + data.hausnummer + ", " + data.plz + " " + data.ort
+        )) {
+            return;
+        }
+
+        const response = await fetch("/kunde", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        document.getElementById("kundeResponse").innerText = "✅ Kunde gespeichert: " + JSON.stringify(result);
+
+        // Dropdown neu laden
+        document.getElementById("kdnr").innerHTML = '<option value="">-- bitte wählen --</option>';
+        ladeKunden();
+
+        // Modal schließen nach 1 Sekunde
+        setTimeout(() => {
+            document.getElementById("kundeModal").style.display = "none";
+            document.getElementById("kundeForm").reset();
+            document.getElementById("kundeResponse").innerText = "";
+        }, 1000);
+    });
+
+ 
+    </script>
+</body>
+</html>

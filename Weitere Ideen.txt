@@ -1,0 +1,22 @@
+Rechnungsnr -> Lösung 3 (Der Kompromiss)
+Ein fortlaufender Nummernkreis pro Monat.
+    Format: YYMM-NNN (z.B. 2511-001, 2511-002)
+
+
+
+
+Rechnungsdaten in Datenbank speichern (snapshot)
+kürzel einfügen in gui implementieren
+
+Unbezahlte Rechnungen als "bezahlt" markieren können
+UPDATE Rechnung SET bezahlt = true WHERE rechnung_nr = 'GEBO25-10';
+
+Mahnung erstellen! -> Dropdown, das unbezahlte Rechnungen abruft
+
+beim Kundenanlegen -> anlegen der Konditionen
+
+Fehlermeldung -> möglicherweise Datei geöffnet?
+
+Erinnerung: "Wurde Rechnung bezahlt?"
+
+Automatisches Backup bei Beendigung der Software? Oder automatisches Backup in regelmäßigen Abständen? -> Regelmäßiges Backup wohl sinnvoller und einfacher

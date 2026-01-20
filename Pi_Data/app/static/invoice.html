@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Rechnung erstellen</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2rem;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            width: 300px;
+            gap: 10px;
+        }
+        button {
+            padding: 8px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Rechnung erstellen</h1>
+    <form id="rechnungForm">
+        <label for="kdnr">Kunde:</label>
+        <select id="kdnr" name="kdnr" required>
+            <option value="">-- bitte wählen --</option>
+        </select>
+
+        <label for="startdatum">Von:</label>
+        <input type="date" id="startdatum" name="startdatum" required>
+
+        <label for="enddatum">Bis:</label>
+        <input type="date" id="enddatum" name="enddatum" required>
+
+        <button type="submit">Rechnung erzeugen</button>
+    </form>
+
+    <p id="response"></p>
+
+    <script>
+        // --- Kunden laden ---
+        async function ladeKunden() {
+            const response = await fetch("/kunden");
+            const kunden = await response.json();
+            const select = document.getElementById("kdnr");
+            kunden.forEach(k => {
+                const opt = document.createElement("option");
+                opt.value = k.kdnr;
+                opt.textContent = `${k.name} (${k.kdnr})`;
+                select.appendChild(opt);
+            });
+        }
+        ladeKunden();
+
+        // --- Formular absenden ---
+        document.getElementById("rechnungForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+
+            const response = await fetch("/rechnung", {
+                method: "POST",
+                body: formData
+            });
+
+            const result = await response.json();
+            document.getElementById("response").innerText = JSON.stringify(result);
+        });
+    </script>
+</body>
+</html>
