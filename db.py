@@ -53,16 +53,58 @@ def fetch_rechnungsdaten(kdnr: int, startdatum: str, enddatum: str):
     kunde_row = cur.fetchone()
     
     # Besuchsdaten
-    cur.execute("SELECT b.termin, b.anzahl_einheiten, b.bemerkung, k.preis_pro_einheit, k.einheitsdauer_min FROM besuch b JOIN kondition k ON k.kdnr = b.kdnr WHERE b.kdnr = %s AND b.termin BETWEEN %s AND %s AND k.gueltig_bis IS NULL OR b.termin <= k.gueltig_bis AND b.termin >= k.gueltig_von ORDER BY b.termin;", (kdnr, startdatum, enddatum))
+    cur.execute("""
+        SELECT b.termin, b.anzahl_einheiten, b.bemerkung, k.preis_pro_einheit, k.einheitsdauer_min 
+        FROM besuch b 
+        JOIN kondition k ON k.kdnr = b.kdnr 
+        WHERE b.kdnr = %s 
+            AND b.termin BETWEEN %s AND %s 
+            AND b.termin >= k.gueltig_von 
+            AND (k.gueltig_bis IS NULL OR b.termin <= k.gueltig_bis) 
+        ORDER BY b.termin;
+    """, (kdnr, startdatum, enddatum))
     besuche_rows = cur.fetchall()
     
     # Fahrtkosten (ein Eintrag pro Besuchstag)
-    cur.execute("SELECT DISTINCT DATE(b.termin) AS besuchsdatum, k.fahrtstrecke_km, k.km_geld, k.fahrtstrecke_km * k.km_geld AS fahrtkosten FROM besuch b JOIN kondition k ON k.kdnr = b.kdnr WHERE b.kdnr = %s AND b.termin BETWEEN %s AND %s AND k.gueltig_bis IS NULL OR b.termin <= k.gueltig_bis AND b.termin >= k.gueltig_von ORDER BY besuchsdatum;", (kdnr, startdatum, enddatum))
+    cur.execute("""
+        SELECT DISTINCT DATE(b.termin) AS besuchsdatum, k.fahrtstrecke_km, k.km_geld, k.fahrtstrecke_km * k.km_geld AS fahrtkosten
+        FROM besuch b
+        JOIN kondition k ON k.kdnr = b.kdnr
+        WHERE b.kdnr = %s
+            AND b.termin BETWEEN %s AND %s 
+            AND b.termin >= k.gueltig_von 
+            AND (k.gueltig_bis IS NULL OR b.termin <= k.gueltig_bis) 
+        ORDER BY besuchsdatum;
+    """, (kdnr, startdatum, enddatum))
     fahrt_rows = cur.fetchall()
 
     
     # Gesamtkosten
-    cur.execute("WITH einheitenkosten AS (SELECT SUM(b.anzahl_einheiten * k.preis_pro_einheit) AS summe_einheitenkosten FROM besuch b JOIN kondition k ON k.kdnr = b.kdnr WHERE b.kdnr = %s AND b.termin BETWEEN %s AND %s AND k.gueltig_bis IS NULL OR b.termin <= k.gueltig_bis AND b.termin >= k.gueltig_von), fahrtkosten AS (SELECT SUM(k.fahrtstrecke_km * k.km_geld) AS summe_fahrtkosten FROM (SELECT DISTINCT DATE(b.termin) AS besuchsdatum, k.fahrtstrecke_km, k.km_geld FROM besuch b JOIN kondition k ON k.kdnr = b.kdnr WHERE b.kdnr = %s AND b.termin BETWEEN %s AND %s AND k.gueltig_bis IS NULL OR b.termin <= k.gueltig_bis AND b.termin >= k.gueltig_von) AS k) SELECT ek.summe_einheitenkosten, fk.summe_fahrtkosten, (ek.summe_einheitenkosten + fk.summe_fahrtkosten) AS gesamt_summe FROM einheitenkosten ek, fahrtkosten fk;", (kdnr, startdatum, enddatum, kdnr, startdatum, enddatum))
+    cur.execute("""
+        WITH einheitenkosten AS (
+            SELECT SUM(b.anzahl_einheiten * k.preis_pro_einheit) AS summe_einheitenkosten
+            FROM besuch b
+            JOIN kondition k ON k.kdnr = b.kdnr
+            WHERE b.kdnr = %s
+                AND b.termin BETWEEN %s AND %s
+                AND b.termin >= k.gueltig_von
+                AND (k.gueltig_bis IS NULL OR b.termin <= k.gueltig_bis)
+            ),
+            fahrtkosten AS (
+                SELECT SUM(k.fahrtstrecke_km * k.km_geld) AS summe_fahrtkosten
+                FROM (
+                    SELECT DISTINCT DATE(b.termin) AS besuchsdatum, k.fahrtstrecke_km, k.km_geld
+                    FROM besuch b
+                    JOIN kondition k ON k.kdnr = b.kdnr
+                    WHERE b.kdnr = %s
+                        AND b.termin BETWEEN %s AND %s
+                        AND b.termin >= k.gueltig_von
+                        AND (k.gueltig_bis IS NULL OR b.termin <= k.gueltig_bis)
+                    ) AS k
+                )
+            SELECT ek.summe_einheitenkosten, fk.summe_fahrtkosten, (ek.summe_einheitenkosten + fk.summe_fahrtkosten) AS gesamt_summe
+            FROM einheitenkosten ek, fahrtkosten fk;
+        """, (kdnr, startdatum, enddatum, kdnr, startdatum, enddatum))
     gesamtsumme = cur.fetchone()
     
     cur.close()
@@ -73,7 +115,7 @@ def fetch_rechnungsdaten(kdnr: int, startdatum: str, enddatum: str):
     frist = re_datum + timedelta(days=14)
     
     rechnung = {
-        "rechnung_nr": f"{kunde_row[6]}{datetime.now().strftime("%y-%m")}",
+        "rechnung_nr": f"{kunde_row[6]}{datetime.now().strftime('%y-%m')}",
         "datum": re_datum.strftime("%d.%m.%Y"),
         "frist": frist.strftime("%d.%m.%Y"),
         "kunde": {

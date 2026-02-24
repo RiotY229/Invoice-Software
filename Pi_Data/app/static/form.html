@@ -35,6 +35,9 @@
             <form id="kundeForm">
                 <label for="name">Name:</label><br>
                 <input type="text" id="name" name="name" required><br><br>
+                
+                <label for="kuerzel">Kunden-Kürzel:</label><br>
+                <input type="text" id="kuerzel" name="kuerzel" required><br><br>
  
                 <label for="strasse">Straße & Hausnummer:</label><br>
                 <input type="text" id="strasse" name="strasse" placeholder="Musterweg 7" required><br><br>
@@ -130,14 +133,14 @@
             document.getElementById("kundeModal").style.display = "none";
         });
 
-        // --- Modal öffnen/schließen ---
+        /* --- Modal öffnen/schließen ---
         document.getElementById("addKundeBtn").addEventListener("click", () => {
             document.getElementById("kundeModal").style.display = "flex";
         });
 
         document.getElementById("cancelKundeBtn").addEventListener("click", () => {
             document.getElementById("kundeModal").style.display = "none";
-        });
+        }); */
 
         // --- Kunde speichern ---
         document.getElementById("kundeForm").addEventListener("submit", async function(e) {
@@ -158,12 +161,14 @@
             strasse: strasse,
             hausnummer: hausnummer,
             plz: plz,
-            ort: ort
+            ort: ort,
+            kuerzel: document.getElementById("kuerzel").value.trim()
         };
 
         if (!confirm(
             "Neuen Kunden anlegen?\n\n" +
             "Name: " + data.name + "\n" +
+            "Kunden-Kürzel: " + data.kuerzel + "\n" +
             "Adresse: " + data.strasse + " " + data.hausnummer + ", " + data.plz + " " + data.ort
         )) {
             return;

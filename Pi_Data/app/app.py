@@ -74,6 +74,7 @@ def get_kunden():
 # Neuen Kunden anlegen
 class KundeCreate(BaseModel):
     name: str
+    kuerzel: str
     strasse: str
     hausnummer: str
     plz: str
@@ -81,18 +82,33 @@ class KundeCreate(BaseModel):
 
 @app.post("/kunde")
 def add_kunde(kunde: KundeCreate):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO kunde (name, strasse, hausnummer, plz, ort) VALUES (%s, %s, %s, %s, %s) RETURNING kdnr;",
-        (kunde.name, kunde.strasse, kunde.hausnummer, kunde.plz, kunde.ort)
-    )
-    new_id = cur.fetchone()[0]
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return {"message": "Kunde angelegt", "kdnr": new_id}
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO kunde (name, strasse, hausnummer, plz, ort, kuerzel) VALUES (%s, %s, %s, %s, %s, %s) RETURNING kdnr;",
+            (kunde.name, kunde.strasse, kunde.hausnummer, kunde.plz, kunde.ort, kunde.kuerzel)
+        )
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        
+        return {"message": "Kunde angelegt", "kdnr": new_id}
+    
+    except psycopg2.Error as e:
+        # Fängt spezifische Datenbank-Fehler ab
+        if 'conn' in locals() and conn:
+            conn.rollback() # Bricht die fehlerhafte Transaktion ab
+        return {"error": "Datenbank-Fehler", "details": str(e)}
+    except Exception as e:
+        # Fängt sonstige Fehler ab
+        return {"error": "Allgemeiner Fehler", "details": str(e)}
+    finally:
+        # Wird IMMER ausgeführt, um die Verbindung sauber zu schließen
+        if 'cur' in locals() and cur:
+            cur.close()
+        if 'conn' in locals() and conn:
+            conn.close()
+        
 
 # @app.get("/rechnung")
 # def serve_rechnung_form():
