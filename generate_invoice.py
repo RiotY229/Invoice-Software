@@ -80,7 +80,7 @@ import sys
 def generate_invoice(rechnung, output_path):
     # Template-Ordner setzen
     env = Environment(loader=FileSystemLoader("."))
-    template = env.get_template("/templates/rechnung.html")
+    template = env.get_template("templates/rechnung.html")
 
     # HTML mit Daten füllen
     html_content = template.render(rechnung=rechnung)
@@ -110,4 +110,5 @@ def generate_invoice(rechnung, output_path):
     #print(f"✅ Rechnung erstellt: {pdf_file}")
 
 if __name__ == "__main__":
-    generate_invoice(rechnung)
+    print("Dieses Modul ist für den Import gedacht und erstellt die PDF-Rechnungen.")
+    print("Bitte führe die main.py aus, um das Programm zu starten.")

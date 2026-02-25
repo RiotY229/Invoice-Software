@@ -75,18 +75,41 @@ class InvoiceApp:
             return
         
         kdnr = self.kunden_dict[auswahl]
-        start = self.start_entry.get()
-        ende = self.end_entry.get()
+        start_str = self.start_entry.get()
+        ende_str = self.end_entry.get()
         
-        if datetime.strptime(ende, "%Y-%m-%d") < datetime.strptime(start, "%Y-%m-%d"):
+        if datetime.strptime(ende_str, "%Y-%m-%d") < datetime.strptime(start_str, "%Y-%m-%d"):
             messagebox.showerror("Fehler", "Das Enddatum darf nicht vor dem Startdatum liegen.")
             return
 
+        # Uhrzeit hinzufügen, damit der ausgewählte Zeitraum
+        # vom Beginn des ersten Tages bis zum Ende des letzten Tages reicht
+        start_db = f"{start_str} 00:00:00"
+        ende_db = f"{ende_str} 23:59:59"
+
         try:
-            rechnung = fetch_rechnungsdaten(kdnr, start, ende)
+            rechnung = fetch_rechnungsdaten(kdnr, start_db, ende_db)
+            
+            # --- Fehlende Konditionen abfangen ---
+            if rechnung.get('summe') is None:
+                messagebox.showwarning(
+                    "Achtung: Keine Konditionen gefunden", 
+                    "Es konnten keine Kosten für diesen Zeitraum berechnet werden.\n\n"
+                    "Wahrscheinlicher Grund:\n"
+                    "Für diesen Kunden fehlt noch der Eintrag in der Tabelle 'kondition' "
+                    "(Preis pro Einheit, km-Geld etc.) oder die Konditionen sind in diesem "
+                    "Zeitraum nicht gültig.\n\n"
+                    "Bitte trage die Konditionen für diesen Kunden in der Datenbank nach!"
+                )
+                return
+
+            # --- NEUES FEATURE: Dateiname automatisch vorschlagen ---
+            vorgeschlagener_dateiname = f"{rechnung['rechnung_nr']}.pdf"
+
             # Nutzer nach Speicherort fragen
             pfad = filedialog.asksaveasfilename(
                 defaultextension=".pdf",
+                initialfile=vorgeschlagener_dateiname,
                 filetypes=[("PDF-Datei", "*.pdf")],
                 title="Rechnung speichern unter..."
             )
@@ -94,7 +117,6 @@ class InvoiceApp:
                 return  # Benutzer hat abgebrochen
             
             generate_invoice(rechnung, pfad)
-            # generate_invoice aufrufen
 
             messagebox.showinfo("Erfolg", f"✅ Rechnung gespeichert:\n{pfad}")
             

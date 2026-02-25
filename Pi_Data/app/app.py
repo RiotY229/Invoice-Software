@@ -6,7 +6,7 @@ import os
 from pydantic import BaseModel
 import psycopg2
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 import subprocess
 
 # --- FastAPI-Setup ---
@@ -55,10 +55,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 def serve_form():
     return FileResponse(os.path.join("static", "form.html"))
 
-# @app.get("/invoice")
-# def serve_invoice():
-#     return FileResponse(os.path.join("static", "invoice.html"))
-
 # Kundendaten für Dropdown
 @app.get("/kunden")
 def get_kunden():
@@ -75,6 +71,7 @@ def get_kunden():
 class KundeCreate(BaseModel):
     name: str
     kuerzel: str
+    ansprechpartner: Optional[str] = None
     strasse: str
     hausnummer: str
     plz: str
@@ -86,8 +83,8 @@ def add_kunde(kunde: KundeCreate):
         conn = get_connection()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO kunde (name, strasse, hausnummer, plz, ort, kuerzel) VALUES (%s, %s, %s, %s, %s, %s) RETURNING kdnr;",
-            (kunde.name, kunde.strasse, kunde.hausnummer, kunde.plz, kunde.ort, kunde.kuerzel)
+            "INSERT INTO kunde (name, ansprechpartner, strasse, hausnummer, plz, ort, kuerzel) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING kdnr;",
+            (kunde.name, kunde.ansprechpartner, kunde.strasse, kunde.hausnummer, kunde.plz, kunde.ort, kunde.kuerzel)
         )
         new_id = cur.fetchone()[0]
         conn.commit()

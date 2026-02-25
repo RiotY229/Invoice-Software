@@ -34,16 +34,19 @@
             <h2>Neuer Kunde</h2>
             <form id="kundeForm">
                 <label for="name">Name:</label><br>
-                <input type="text" id="name" name="name" required><br><br>
+                <input type="text" id="name" name="name" placeholder="z.B. GeBo Bezirkskrankenhaus Bayreuth"><br><br>
                 
-                <label for="kuerzel">Kunden-Kürzel:</label><br>
-                <input type="text" id="kuerzel" name="kuerzel" required><br><br>
+                <label for="kuerzel">Rechnungskürzel:</label><br>
+                <input type="text" id="kuerzel" name="kuerzel" placeholder="z.B. GEBO"><br><br>
+
+                <label for="ansprechpartner">Ansprechpartner*in:</label><br>
+                <input type="text" id="ansprechpartner" name="ansprechpartner" placeholder="(optional)"><br><br>
  
-                <label for="strasse">Straße & Hausnummer:</label><br>
-                <input type="text" id="strasse" name="strasse" placeholder="Musterweg 7" required><br><br>
+                <label for="strasse">Adresse:</label><br>
+                <input type="text" id="strasse" name="strasse" placeholder="Straße und Hausnummer" required><br><br>
  
-                <label for="plz">PLZ & Ort:</label><br>
-                <input type="text" id="plz" name="plz" placeholder="12345 Musterstadt" required><br><br>
+                <!-- <label for="plz">PLZ & Ort:</label><br> -->
+                <input type="text" id="plz" name="plz" placeholder="PLZ und Ort" required><br><br>
 
                 <button type="submit">Speichern</button>
                 <button type="button" id="cancelKundeBtn">Abbrechen</button>
@@ -148,16 +151,29 @@
 
         // Straße & Hausnummer trennen
         const strasseInput = document.getElementById("strasse").value.trim().split(" ");
+
+        if (strasseInput.length < 2) {
+            document.getElementById("kundeResponse").innerText = "❌ Bitte Straße UND Hausnummer eingeben (durch Leerzeichen getrennt).";
+            return;
+        }
+
         const hausnummer = strasseInput.pop();
         const strasse = strasseInput.join(" ");
 
         // PLZ & Ort trennen
         const plzInput = document.getElementById("plz").value.trim().split(" ");
+
+        if (plzInput.length < 2) {
+            document.getElementById("kundeResponse").innerText = "❌ Bitte PLZ UND Ort eingeben (durch Leerzeichen getrennt).";
+            return;
+        }
+        
         const plz = plzInput[0];
         const ort = plzInput.slice(1).join(" ");
 
         const data = {
             name: document.getElementById("name").value.trim(),
+            ansprechpartner: document.getElementById("ansprechpartner").value.trim() || null,
             strasse: strasse,
             hausnummer: hausnummer,
             plz: plz,
@@ -168,6 +184,7 @@
         if (!confirm(
             "Neuen Kunden anlegen?\n\n" +
             "Name: " + data.name + "\n" +
+            (data.ansprechpartner ? "Ansprechpartner: " + data.ansprechpartner + "\n" : "") +
             "Kunden-Kürzel: " + data.kuerzel + "\n" +
             "Adresse: " + data.strasse + " " + data.hausnummer + ", " + data.plz + " " + data.ort
         )) {
