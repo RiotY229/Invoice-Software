@@ -54,7 +54,7 @@ def fetch_rechnungsdaten(kdnr: int, startdatum: str, enddatum: str):
     
     # Besuchsdaten
     cur.execute("""
-        SELECT b.termin, b.anzahl_einheiten, b.bemerkung, k.preis_pro_einheit, k.einheitsdauer_min 
+        SELECT b.termin, b.anzahl_einheiten, b.bemerkung, k.preis_pro_einheit, k.einheitsdauer_min, k.kondition_id
         FROM besuch b 
         JOIN kondition k ON k.kdnr = b.kdnr 
         WHERE b.kdnr = %s 
@@ -78,7 +78,6 @@ def fetch_rechnungsdaten(kdnr: int, startdatum: str, enddatum: str):
     """, (kdnr, startdatum, enddatum))
     fahrt_rows = cur.fetchall()
 
-    
     # Gesamtkosten
     cur.execute("""
         WITH einheitenkosten AS (
@@ -118,6 +117,7 @@ def fetch_rechnungsdaten(kdnr: int, startdatum: str, enddatum: str):
         "rechnung_nr": f"{kunde_row[6]}{datetime.now().strftime('%y-%m')}",
         "datum": re_datum.strftime("%d.%m.%Y"),
         "frist": frist.strftime("%d.%m.%Y"),
+        "kondition_id": besuche_rows[0][5] if len(besuche_rows) > 0 else None,
         "kunde": {
             "name": kunde_row[0],
             "ansprechpartner": kunde_row[5],
@@ -150,7 +150,75 @@ def fetch_rechnungsdaten(kdnr: int, startdatum: str, enddatum: str):
     }
     
     return rechnung
+
+# Funktionen für Rechnungs-Tracking
+def check_invoice_paid(rechnung_nr: str) -> bool:
+    """Prüft, ob eine Rechnung bereits als bezahlt markiert wurde."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT bezahlt FROM rechnung WHERE rechnung_nr = %s;", (rechnung_nr,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row[0] if row else False
+
+def upsert_rechnung(rechnung: dict, kdnr: int):
+    """Speichert eine neue Rechnung oder überschreibt eine unbezahlte (Upsert)."""
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Snapshot-Daten sicher extrahieren (falls mal keine Besuche, aber Fahrtkosten da sind)
+    preis = rechnung['besuche'][0]['preis_pro_einheit'] if rechnung['besuche'] else 0.0
+    dauer = rechnung['besuche'][0]['einheitsdauer'] if rechnung['besuche'] else 0
+    km = rechnung['fahrtkosten'][0]['fahrtstrecke'] if rechnung['fahrtkosten'] else 0.0
+    geld = rechnung['fahrtkosten'][0]['km_geld'] if rechnung['fahrtkosten'] else 0.0
+    kondition_id = rechnung.get('kondition_id')
+
+    # ON CONFLICT nutzt deinen 'uk_rechnung_nr' Constraint!
+    cur.execute("""
+        INSERT INTO rechnung 
+        (rechnung_nr, kdnr, kondition_id, summe, preis_pro_einheit_snapshot, einheitsdauer_min_snapshot, fahrtstrecke_km_snapshot, km_geld_snapshot, bezahlt)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, false)
+        ON CONFLICT (rechnung_nr) DO UPDATE SET
+            summe = EXCLUDED.summe,
+            kondition_id = EXCLUDED.kondition_id,
+            preis_pro_einheit_snapshot = EXCLUDED.preis_pro_einheit_snapshot,
+            einheitsdauer_min_snapshot = EXCLUDED.einheitsdauer_min_snapshot,
+            fahrtstrecke_km_snapshot = EXCLUDED.fahrtstrecke_km_snapshot,
+            km_geld_snapshot = EXCLUDED.km_geld_snapshot;
+    """, (
+        rechnung['rechnung_nr'], kdnr, kondition_id, rechnung['summe'], preis, dauer, km, geld
+    ))
     
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def fetch_offene_rechnungen():
+    """Holt alle Rechnungen, die noch nicht bezahlt wurden."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT r.rechnung_nr, r.rechnungsdatum, k.name, r.summe 
+        FROM rechnung r
+        JOIN kunde k ON r.kdnr = k.kdnr
+        WHERE r.bezahlt = false
+        ORDER BY r.rechnungsdatum DESC;
+    """)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return [{"rechnung_nr": r[0], "datum": r[1].strftime("%d.%m.%Y"), "kunde": r[2], "summe": r[3]} for r in rows]
+
+def mark_rechnung_bezahlt(rechnung_nr: str):
+    """Markiert eine Rechnung in der Datenbank als bezahlt."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE rechnung SET bezahlt = true WHERE rechnung_nr = %s;", (rechnung_nr,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
 # --- Test ---
 if __name__ == "__main__":
     try:
