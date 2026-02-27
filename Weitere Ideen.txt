@@ -5,6 +5,12 @@ Ein fortlaufender Nummernkreis pro Monat.
 Mahnung erstellen! -> Dropdown, das unbezahlte Rechnungen abruft
 
 beim Kundenanlegen -> anlegen der Konditionen
+-> Kundenverwaltung (Daten ändern)
+-> Kürzel nur Großbuchstaben erlaubt
+-> 
+
+Lösch Kaskaden in Datenbank überdenken
+(wenn Kunde gelöscht wird, werden alle Rechnungs- Besuchs- und sonstige Daten auch gelöscht?)
 
 Fehlermeldung -> möglicherweise Datei geöffnet?
 
