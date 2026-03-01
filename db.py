@@ -219,6 +219,97 @@ def mark_rechnung_bezahlt(rechnung_nr: str):
     cur.close()
     conn.close()
 
+# Kunden- und Konditionsverwaltung
+
+def fetch_kunde_details(kdnr: int):
+    """Holt Stammdaten und die aktuell gültigen Konditionen eines Kunden."""
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    # JOIN mit kondition, aber NUR die aktuell gültige (gueltig_bis IS NULL)
+    cur.execute("""
+        SELECT k.name, k.kuerzel, k.ansprechpartner, k.strasse, k.hausnummer, k.plz, k.ort,
+               c.preis_pro_einheit, c.einheitsdauer_min, c.fahrtstrecke_km, c.km_geld, c.gueltig_von
+        FROM kunde k
+        LEFT JOIN kondition c ON k.kdnr = c.kdnr AND c.gueltig_bis IS NULL
+        WHERE k.kdnr = %s;
+    """, (kdnr,))
+    
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    
+    if not row:
+        return None
+        
+    return {
+        "name": row[0] or "", "kuerzel": row[1] or "", "ansprechpartner": row[2] or "", 
+        "strasse": row[3] or "", "hausnummer": row[4] or "", "plz": row[5] or "", "ort": row[6] or "",
+        "preis": row[7] if row[7] is not None else 0.0,
+        "dauer": row[8] if row[8] is not None else 0,
+        "strecke": row[9] if row[9] is not None else 0.0,
+        "km_geld": row[10] if row[10] is not None else 0.0,
+        "gueltig_von": row[11].strftime("%d.%m.%Y") if len(row) > 11 and row[11] is not None else "Unbekannt"
+    }
+
+def update_kunde_stammdaten(kdnr: int, daten: dict):
+    """Aktualisiert die reinen Stammdaten eines Kunden."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE kunde 
+        SET name = %s, kuerzel = %s, ansprechpartner = %s, strasse = %s, hausnummer = %s, plz = %s, ort = %s
+        WHERE kdnr = %s;
+    """, (
+        daten['name'], daten['kuerzel'], daten['ansprechpartner'] or None, 
+        daten['strasse'], daten['hausnummer'], daten['plz'], daten['ort'], kdnr
+    ))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def update_kunde_konditionen(kdnr: int, preis: float, dauer: int, strecke: float, km_geld: float, gueltig_ab_str: str):
+    """Versioniert die Konditionen: Beendet alte Kondition und legt neue an."""
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    gueltig_ab = datetime.strptime(gueltig_ab_str, "%Y-%m-%d").date()
+    gueltig_bis_alt = gueltig_ab - timedelta(days=1)
+    
+    # 1. Prüfen, ob es eine aktive Kondition gibt
+    cur.execute("SELECT kondition_id FROM kondition WHERE kdnr = %s AND gueltig_bis IS NULL;", (kdnr,))
+    aktive_kondition = cur.fetchone()
+    
+    # 2. Falls ja, beenden wir sie am Tag VOR dem neuen Startdatum
+    if aktive_kondition:
+        cur.execute("UPDATE kondition SET gueltig_bis = %s WHERE kondition_id = %s;", (gueltig_bis_alt, aktive_kondition[0]))
+        
+    # 3. Neue Kondition anlegen
+    cur.execute("""
+        INSERT INTO kondition (kdnr, gueltig_von, preis_pro_einheit, einheitsdauer_min, fahrtstrecke_km, km_geld)
+        VALUES (%s, %s, %s, %s, %s, %s);
+    """, (kdnr, gueltig_ab, preis, dauer, strecke, km_geld))
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def correct_kunde_konditionen(kdnr: int, preis: float, dauer: int, strecke: float, km_geld: float):
+    """Überschreibt die aktuell gültige Kondition (nur für Tippfehler, keine Historisierung)."""
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        UPDATE kondition 
+        SET preis_pro_einheit = %s, einheitsdauer_min = %s, fahrtstrecke_km = %s, km_geld = %s
+        WHERE kdnr = %s AND gueltig_bis IS NULL;
+    """, (preis, dauer, strecke, km_geld, kdnr))
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 # --- Test ---
 if __name__ == "__main__":
     try:
